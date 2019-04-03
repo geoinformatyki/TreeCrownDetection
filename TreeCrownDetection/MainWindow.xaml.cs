@@ -50,6 +50,7 @@ namespace TreeCrownDetection
 
         public async Task ReadGeoTiffFiles(string path, IProgress<int> progress)
         {
+            GdalConfiguration.ConfigureGdal();
             if (null == path)
             {
                 return;
