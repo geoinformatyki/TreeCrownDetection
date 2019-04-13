@@ -21,7 +21,7 @@
                     <Button Margin="5" VerticalAlignment="Top" Height="30" Content="Open file..." Click="OpenFileButtonClick"/>
                 </Grid>
             </DockPanel>
-            <DockPanel Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
+            <DockPanel x:Name="ImageDock"  Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
                 <Image Source="{StaticResource ImagePlaceholder}"/>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Row="1" Grid.Column="0">
