@@ -63,7 +63,7 @@ namespace TreeCrownDetection
             {
                 var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
                 var backgroundSource = Convert(background);
-                var displayImage = new Image {Source = backgroundSource};
+                var displayImage = new Image { Source = backgroundSource };
                 ImageDock.Children.Clear();
                 ImageDock.Children.Add(displayImage);
                 ProgressBar.Value = 100;
@@ -134,7 +134,7 @@ namespace TreeCrownDetection
             var bitmapSource = BitmapSource.Create(
                 bitmapData.Width, bitmapData.Height,
                 bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                PixelFormats.Bgr24, null,
+                PixelFormats.Bgr32, null,
                 bitmapData.Scan0, bitmapData.Stride * bitmapData.Height, bitmapData.Stride);
 
             bitmap.UnlockBits(bitmapData);
@@ -158,19 +158,21 @@ namespace TreeCrownDetection
                 PixelFormat.Format32bppArgb
             );
 
-            var startingPosition = (ColorARGB*) bitmapData.Scan0;
-
+            var startingPosition = (ColorARGB*)bitmapData.Scan0;
             for (var i = 0; i < height; i++)
-            for (var j = 0; j < width; j++)
             {
-                var color = rawImage[i * width + j];
-                var rgb = (byte) (color * 255);
+                for (var j = 0; j < width; j++)
+                {
+                    var color = rawImage[i * width + j];
 
-                var position = startingPosition + j + i * width;
-                position->A = 255;
-                position->R = rgb;
-                position->G = rgb;
-                position->B = rgb;
+                    var rgb = (byte)color;
+
+                    var position = startingPosition + j + i * width;
+                    position->A = 255;
+                    position->R = rgb;
+                    position->G = rgb;
+                    position->B = rgb;
+                }
             }
 
             image.UnlockBits(bitmapData);
