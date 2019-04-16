@@ -64,8 +64,8 @@ namespace TreeCrownDetection
                 var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
                 var backgroundSource = Convert(background);
                 var displayImage = new Image { Source = backgroundSource };
-                ImageDock.Children.Clear();
-                ImageDock.Children.Add(displayImage);
+                ImageView.MouseWheel += Image_MouseWheel;
+                ImageView.Source = displayImage.Source;
                 ProgressBar.Value = 100;
             }
             else
@@ -165,7 +165,7 @@ namespace TreeCrownDetection
                 {
                     var color = rawImage[i * width + j];
 
-                    var rgb = (byte)color;
+                    var rgb = (byte)(color > 15 ? 255 : 0);
 
                     var position = startingPosition + j + i * width;
                     position->A = 255;
@@ -179,6 +179,12 @@ namespace TreeCrownDetection
             return image;
         }
 
-
+        private void Image_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            var st = (ScaleTransform)ImageView.RenderTransform;
+            double zoom = e.Delta > 0 ? .2 : -.2;
+            st.ScaleX += zoom;
+            st.ScaleY += zoom;
+        }
     }
 }

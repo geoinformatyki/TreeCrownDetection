@@ -16,13 +16,18 @@
                 <RowDefinition Height="450*"></RowDefinition>
                 <RowDefinition Height="50*"></RowDefinition>
             </Grid.RowDefinitions>
+            <DockPanel x:Name="ImageDock"  Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
+                <Image x:Name="ImageView" Source="{StaticResource ImagePlaceholder}" Opacity="1" RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform x:Name="scale" ScaleX="1" ScaleY="1"
+                            CenterX="0.5" CenterY="0.5" />
+                    </Image.RenderTransform>
+                </Image>
+            </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Column="0">
                 <Grid Name="LeftDock">
                     <Button Margin="5" VerticalAlignment="Top" Height="30" Content="Open file..." Click="OpenFileButtonClick"/>
                 </Grid>
-            </DockPanel>
-            <DockPanel x:Name="ImageDock"  Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
-                <Image Source="{StaticResource ImagePlaceholder}"/>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Row="1" Grid.Column="0">
                 <Button Margin="5"  Content="Save file..." Height="30" VerticalAlignment="Center" IsEnabled="False"/>
