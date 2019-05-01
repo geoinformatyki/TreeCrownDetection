@@ -47,7 +47,7 @@ namespace TreeCrownDetection
             {
                 DefaultExt = ".geoTIFF",
                 Filter =
-                    "geoTIFF Files(*.geoTIFF)|*.gTIFF|TIFF Files (*.tiff)|*.tiff|TIF Files (*.tif)|*.tif"
+                    "TIF Files (*.tif)|*.tif|geoTIFF Files(*.geoTIFF)|*.gTIFF|TIFF Files (*.tiff)|*.tiff"
             };
 
             var result = dlg.ShowDialog();
@@ -148,6 +148,7 @@ namespace TreeCrownDetection
             public byte R;
             public byte A;
         }
+        
 
         private static unsafe Bitmap ToBitmap(IReadOnlyList<double> rawImage, int width, int height)
         {
@@ -158,20 +159,53 @@ namespace TreeCrownDetection
                 PixelFormat.Format32bppArgb
             );
 
+            // TODO: read values from UI
+            int cutOff = 15;
+            int a = 3;
+            int b = 5;
+
+            var tcd = new TreeCrownDetector(rawImage, width, height, cutOff, a, b);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var labaledObj = tcd.GetLabeledTrees();
+            watch.Stop();
+            var elapsedMs = watch.ElapsedMilliseconds;
+            System.Console.WriteLine("Elapsed time: ");
+            System.Console.WriteLine(elapsedMs);
+
+            Random rnd = new Random();
+            var colors = new Dictionary<int, ColorARGB>();
+
+            ColorARGB color;
+            color.A = 255;
+            color.R = 0;
+            color.G = 0;
+            color.B = 0;
+            colors.Add(0, color);
+
             var startingPosition = (ColorARGB*)bitmapData.Scan0;
-            for (var i = 0; i < height; i++)
+            for (var i = 1; i < height - 1; i++)
             {
-                for (var j = 0; j < width; j++)
+                for (var j = 1; j < width - 1; j++)
                 {
-                    var color = rawImage[i * width + j];
+                    var label = labaledObj[i, j];
 
-                    var rgb = (byte)(color > 15 ? 255 : 0);
+                    if (label != 0)
+                    {
+                        if (!colors.ContainsKey(label))
+                        {
+                            while (colors.ContainsValue(color))
+                            {
+                                color.A = 255;
+                                color.R = (byte)rnd.Next(256);
+                                color.G = (byte)rnd.Next(256);
+                                color.B = (byte)rnd.Next(256);
+                            }
+                            
+                            colors.Add(label, color);
+                        }
 
-                    var position = startingPosition + j + i * width;
-                    position->A = 255;
-                    position->R = rgb;
-                    position->G = rgb;
-                    position->B = rgb;
+                        *(startingPosition + j + i * width) = colors[label];
+                    }
                 }
             }
 
