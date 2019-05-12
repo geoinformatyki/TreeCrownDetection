@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
@@ -77,6 +79,7 @@ namespace TreeCrownDetection
             if (Complete.Equals(true))
             {
                 ProgressBar.Value = 0;
+                ConvertButton.IsEnabled = true;
             }
         }
 
@@ -148,7 +151,7 @@ namespace TreeCrownDetection
             public byte R;
             public byte A;
         }
-        
+
 
         private static unsafe Bitmap ToBitmap(IReadOnlyList<double> rawImage, int width, int height)
         {
@@ -159,14 +162,16 @@ namespace TreeCrownDetection
                 PixelFormat.Format32bppArgb
             );
 
-            // TODO: read values from UI
+            var sliderA = Application.Current.MainWindow.FindName("SliderA") as Slider;
+            var sliderB = Application.Current.MainWindow.FindName("SliderB") as Slider;
+
             int cutOff = 15;
-            int a = 3;
-            int b = 5;
+            int a = System.Convert.ToInt32(sliderA.Value);
+            int b = System.Convert.ToInt32(sliderB.Value);
 
             var tcd = new TreeCrownDetector(rawImage, width, height, cutOff, a, b);
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var labaledObj = tcd.GetLabeledTrees();
+            var labeledObj = tcd.GetLabeledTrees();
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             System.Console.WriteLine("Elapsed time: ");
@@ -187,7 +192,7 @@ namespace TreeCrownDetection
             {
                 for (var j = 1; j < width - 1; j++)
                 {
-                    var label = labaledObj[i, j];
+                    var label = labeledObj[i, j];
 
                     if (label != 0)
                     {
@@ -200,7 +205,7 @@ namespace TreeCrownDetection
                                 color.G = (byte)rnd.Next(256);
                                 color.B = (byte)rnd.Next(256);
                             }
-                            
+
                             colors.Add(label, color);
                         }
 
@@ -219,6 +224,31 @@ namespace TreeCrownDetection
             double zoom = e.Delta > 0 ? .2 : -.2;
             st.ScaleX += zoom;
             st.ScaleY += zoom;
+        }
+
+        private void SliderA_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            int val = System.Convert.ToInt32(e.NewValue);
+            string msg = $"A value: {val}";
+            var textBlockA = this.TextBlockA;
+            if (textBlockA != null) textBlockA.Text = msg;
+        }
+
+        private void SliderB_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            int val = System.Convert.ToInt32(e.NewValue);
+            string msg = $"B value: {val}";
+            var textBlockB = this.TextBlockB;
+            if (textBlockB != null) textBlockB.Text = msg;
+        }
+
+        private void ConvertButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
+            var backgroundSource = Convert(background);
+            var displayImage = new Image { Source = backgroundSource };
+            ImageView.MouseWheel += Image_MouseWheel;
+            ImageView.Source = displayImage.Source;
         }
     }
 }
