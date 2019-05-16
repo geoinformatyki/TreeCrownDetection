@@ -44,7 +44,7 @@
                 </Grid>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Row="1" Grid.Column="0">
-                <Button Margin="5"  Content="Save file..." Height="30" VerticalAlignment="Center" IsEnabled="False"/>
+                <Button Name="SaveFileButton" Margin="5"  Click="SaveFileButton_OnClick" Content="Save file..." Height="30" VerticalAlignment="Center" IsEnabled="False"/>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Column="1" Grid.Row="1">
                 <ProgressBar Name="ProgressBar" Margin="15" Height="40" VerticalAlignment="Center"/>
