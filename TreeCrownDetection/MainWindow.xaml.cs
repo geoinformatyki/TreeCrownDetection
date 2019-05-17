@@ -275,7 +275,9 @@ namespace TreeCrownDetection
             if (result != true) return;
 
 
-            Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(dlg.FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, null);
+            string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
+
+            Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(dlg.FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
 
             finalDataset.SetGeoTransform(geoTranform);
             var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
@@ -289,9 +291,9 @@ namespace TreeCrownDetection
             byte[] greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
             byte[] blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
 
-            finalDataset.GetRasterBand(0).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 1, 1);
-            finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 1, 1);
-            finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 1, 1);
+            finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 0, 0);
+            finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
+            finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
 
             finalDataset.FlushCache();
 
@@ -301,9 +303,9 @@ namespace TreeCrownDetection
         {
             byte[] outputByteArray = new byte[sizeX * sizeY];
 
-            for (var i = 1; i < sizeY - 1; i++)
+            for (var i = 0; i < sizeY - 1; i++)
             {
-                for (var j = 1; j < sizeX - 1; j++)
+                for (var j = 0; j < sizeX - 1; j++)
                 {
                     if (band == 0)
                     {
