@@ -262,7 +262,7 @@ namespace TreeCrownDetection
             ImageView.Source = displayImage.Source;
         }
 
-        private void SaveFileButton_OnClick(object sender, RoutedEventArgs e)
+        private async void SaveFileButton_OnClick(object sender, RoutedEventArgs e)
         {
             var dlg = new SaveFileDialog
             {
@@ -275,28 +275,36 @@ namespace TreeCrownDetection
             if (result != true) return;
 
 
-            string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
+            await SaveToFile(dlg.FileName);
 
-            Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(dlg.FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
+        }
 
-            finalDataset.SetGeoTransform(geoTranform);
-            var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
+        private async Task SaveToFile(String FileName)
+        {
+            await Task.Run(() =>
+            {
+                string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
 
-            string exportedWkt;
-            spatialReference.ExportToWkt(out exportedWkt);
+                Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
 
-            finalDataset.SetProjection(exportedWkt);
+                finalDataset.SetGeoTransform(geoTranform);
+                var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
 
-            byte[] redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
-            byte[] greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
-            byte[] blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
+                string exportedWkt;
+                spatialReference.ExportToWkt(out exportedWkt);
 
-            finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 0, 0);
-            finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
-            finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.SetProjection(exportedWkt);
 
-            finalDataset.FlushCache();
+                byte[] redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
+                byte[] greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
+                byte[] blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
 
+                finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
+
+                finalDataset.FlushCache();
+            });
         }
 
         private byte[] GetByteArrayFromRaster(Bitmap bitmap, int sizeX, int sizeY, int band)
