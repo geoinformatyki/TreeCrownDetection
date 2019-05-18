@@ -34,7 +34,11 @@ namespace TreeCrownDetection
     {
         private string _inputFilename;
         private RawImage _loadedImage;
+        private Bitmap _processedImage;
         public bool Complete;
+        private Band processingBand;
+        private double[] geoTranform;
+        private string WKT;
 
         public MainWindow()
         {
@@ -64,6 +68,7 @@ namespace TreeCrownDetection
             if (!BandCountError)
             {
                 var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
+                _processedImage = background;
                 var backgroundSource = Convert(background);
                 var displayImage = new Image { Source = backgroundSource };
                 ImageView.MouseWheel += Image_MouseWheel;
@@ -80,6 +85,7 @@ namespace TreeCrownDetection
             {
                 ProgressBar.Value = 0;
                 ConvertButton.IsEnabled = true;
+                SaveFileButton.IsEnabled = true;
             }
         }
 
@@ -93,6 +99,7 @@ namespace TreeCrownDetection
                 BandCountError = false;
                 progress.Report(10);
                 var ds = Gdal.Open(path, Access.GA_ReadOnly);
+                WKT = ds.GetProjectionRef();
                 Console.WriteLine(@"Raster data-set parameters:");
                 Console.WriteLine(@"  Projection: " + ds.GetProjectionRef());
                 Console.WriteLine(@"  RasterCount: " + ds.RasterCount);
@@ -110,21 +117,24 @@ namespace TreeCrownDetection
                 var rasterCols = ds.RasterXSize;
                 var rasterRows = ds.RasterYSize;
 
-                var transformation = new double[6];
-                ds.GetGeoTransform(transformation);
+                geoTranform = new double[6];
+                ds.GetGeoTransform(geoTranform);
 
                 progress.Report(30);
-                var band = ds.GetRasterBand(1);
+                processingBand = ds.GetRasterBand(1);
                 var rasterWidth = rasterCols;
                 var rasterHeight = rasterRows;
                 progress.Report(50);
                 var rasterValues = new double[rasterWidth * rasterHeight];
-                band.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0, 0);
+                processingBand.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0, 0);
                 progress.Report(70);
                 _loadedImage = new RawImage(rasterValues, rasterWidth, rasterHeight);
                 Complete = true;
                 progress.Report(90);
             });
+
+
+            
         }
 
 
@@ -245,10 +255,82 @@ namespace TreeCrownDetection
         private void ConvertButton_OnClick(object sender, RoutedEventArgs e)
         {
             var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
+            _processedImage = background;
             var backgroundSource = Convert(background);
             var displayImage = new Image { Source = backgroundSource };
             ImageView.MouseWheel += Image_MouseWheel;
             ImageView.Source = displayImage.Source;
+        }
+
+        private async void SaveFileButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                DefaultExt = ".geoTIFF",
+                Filter =
+                    "TIF Files (*.tif)|*.tif|geoTIFF Files(*.geoTIFF)|*.gTIFF|TIFF Files (*.tiff)|*.tiff"
+            };
+
+            bool? result = dlg.ShowDialog();
+            if (result != true) return;
+
+
+            await SaveToFile(dlg.FileName);
+
+        }
+
+        private async Task SaveToFile(String FileName)
+        {
+            await Task.Run(() =>
+            {
+                string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
+
+                Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
+
+                finalDataset.SetGeoTransform(geoTranform);
+                var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
+
+                string exportedWkt;
+                spatialReference.ExportToWkt(out exportedWkt);
+
+                finalDataset.SetProjection(exportedWkt);
+
+                byte[] redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
+                byte[] greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
+                byte[] blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
+
+                finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
+
+                finalDataset.FlushCache();
+            });
+        }
+
+        private byte[] GetByteArrayFromRaster(Bitmap bitmap, int sizeX, int sizeY, int band)
+        {
+            byte[] outputByteArray = new byte[sizeX * sizeY];
+
+            for (var i = 0; i < sizeY - 1; i++)
+            {
+                for (var j = 0; j < sizeX - 1; j++)
+                {
+                    if (band == 0)
+                    {
+                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).R;
+                    }
+                    else if (band == 1)
+                    {
+                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).G;
+                    }
+                    else if (band == 2)
+                    {
+                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).B;
+                    }
+                }
+            }
+
+            return outputByteArray;
         }
     }
 }
