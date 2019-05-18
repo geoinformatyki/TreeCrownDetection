@@ -276,21 +276,21 @@ namespace TreeCrownDetection
             if (result != true) return;
 
 
+            Console.WriteLine(String.Format("Saving to file: {0}", dlg.FileName));
             await SaveToFile(dlg.FileName, true);
 
         }
 
         private async Task SaveToFile(String FileName, bool shapefile)
         {
+            String FileNameGTiff = null;
             await Task.Run(() =>
             {
-                
                 string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
-                String FileNameGTiff = null;
 
                 if(shapefile)
                 {
-                    FileNameGTiff = String.Format("tmp.{0}", FileName);
+                    FileNameGTiff = String.Format("{0}.tmp", FileName);
                 }
                 else
                 {
@@ -322,16 +322,16 @@ namespace TreeCrownDetection
                     OSGeo.OGR.DataSource finalDatasource = OSGeo.OGR.Ogr.GetDriverByName("ESRI Shapefile").CreateDataSource(FileName, optionsShapefile);
                     OSGeo.OGR.Layer layer = finalDatasource.CreateLayer("trees", spatialReference, OSGeo.OGR.wkbGeometryType.wkbPolygon, optionsShapefile);
 
-                    Gdal.Polygonize(finalDataset.GetRasterBand(1), null, layer, -1, null, null, null);
+                    Gdal.Polygonize(finalDataset.GetRasterBand(1), finalDataset.GetRasterBand(1), layer, -1, null, null, null);
 
                     finalDatasource.FlushCache();
 
-                    File.Delete(FileNameGTiff);
                 }
                 else
                 {
                     finalDataset.FlushCache();
                 }
+
             });
         }
 
