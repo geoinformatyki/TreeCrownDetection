@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -275,17 +276,27 @@ namespace TreeCrownDetection
             if (result != true) return;
 
 
-            await SaveToFile(dlg.FileName);
+            await SaveToFile(dlg.FileName, true);
 
         }
 
-        private async Task SaveToFile(String FileName)
+        private async Task SaveToFile(String FileName, bool shapefile)
         {
             await Task.Run(() =>
             {
+                
                 string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
+                String FileNameGTiff = null;
 
-                Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(FileName, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
+                if(shapefile)
+                {
+                    FileNameGTiff = String.Format("tmp.{0}", FileName);
+                }
+                else
+                {
+                    FileNameGTiff = FileName;
+                }
+                Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(FileNameGTiff, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
 
                 finalDataset.SetGeoTransform(geoTranform);
                 var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
@@ -303,7 +314,24 @@ namespace TreeCrownDetection
                 finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
                 finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
 
-                finalDataset.FlushCache();
+
+                if (shapefile)
+                {
+                    string[] optionsShapefile = null;
+
+                    OSGeo.OGR.DataSource finalDatasource = OSGeo.OGR.Ogr.GetDriverByName("ESRI Shapefile").CreateDataSource(FileName, optionsShapefile);
+                    OSGeo.OGR.Layer layer = finalDatasource.CreateLayer("trees", spatialReference, OSGeo.OGR.wkbGeometryType.wkbPolygon, optionsShapefile);
+
+                    Gdal.Polygonize(finalDataset.GetRasterBand(1), null, layer, -1, null, null, null);
+
+                    finalDatasource.FlushCache();
+
+                    File.Delete(FileNameGTiff);
+                }
+                else
+                {
+                    finalDataset.FlushCache();
+                }
             });
         }
 
