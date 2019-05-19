@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using OSGeo.GDAL;
+using OSGeo.OGR;
+using OSGeo.OSR;
 using Image = System.Windows.Controls.Image;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
 
@@ -37,8 +39,8 @@ namespace TreeCrownDetection
         private RawImage _loadedImage;
         private Bitmap _processedImage;
         public bool Complete;
-        private Band processingBand;
         private double[] geoTranform;
+        private Band processingBand;
         private string WKT;
 
         public MainWindow()
@@ -127,15 +129,13 @@ namespace TreeCrownDetection
                 var rasterHeight = rasterRows;
                 progress.Report(50);
                 var rasterValues = new double[rasterWidth * rasterHeight];
-                processingBand.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0, 0);
+                processingBand.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0,
+                    0);
                 progress.Report(70);
                 _loadedImage = new RawImage(rasterValues, rasterWidth, rasterHeight);
                 Complete = true;
                 progress.Report(90);
             });
-
-
-            
         }
 
 
@@ -155,14 +155,6 @@ namespace TreeCrownDetection
             return bitmapSource;
         }
 
-        public struct ColorARGB
-        {
-            public byte B;
-            public byte G;
-            public byte R;
-            public byte A;
-        }
-
 
         private static unsafe Bitmap ToBitmap(IReadOnlyList<double> rawImage, int width, int height)
         {
@@ -176,19 +168,19 @@ namespace TreeCrownDetection
             var sliderA = Application.Current.MainWindow.FindName("SliderA") as Slider;
             var sliderB = Application.Current.MainWindow.FindName("SliderB") as Slider;
 
-            int cutOff = 15;
-            int a = System.Convert.ToInt32(sliderA.Value);
-            int b = System.Convert.ToInt32(sliderB.Value);
+            var cutOff = 15;
+            var a = System.Convert.ToInt32(sliderA.Value);
+            var b = System.Convert.ToInt32(sliderB.Value);
 
             var tcd = new TreeCrownDetector(rawImage, width, height, cutOff, a, b);
-            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var watch = Stopwatch.StartNew();
             var labeledObj = tcd.GetLabeledTrees();
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
-            System.Console.WriteLine("Elapsed time: ");
-            System.Console.WriteLine(elapsedMs);
+            Console.WriteLine("Elapsed time: ");
+            Console.WriteLine(elapsedMs);
 
-            Random rnd = new Random();
+            var rnd = new Random();
             var colors = new Dictionary<int, ColorARGB>();
 
             ColorARGB color;
@@ -200,7 +192,6 @@ namespace TreeCrownDetection
 
             var startingPosition = (ColorARGB*)bitmapData.Scan0;
             for (var i = 1; i < height - 1; i++)
-            {
                 for (var j = 1; j < width - 1; j++)
                 {
                     var label = labeledObj[i, j];
@@ -223,33 +214,32 @@ namespace TreeCrownDetection
                         *(startingPosition + j + i * width) = colors[label];
                     }
                 }
-            }
 
             image.UnlockBits(bitmapData);
             return image;
         }
 
-        private void Image_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        private void Image_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             var st = (ScaleTransform)ImageView.RenderTransform;
-            double zoom = e.Delta > 0 ? .2 : -.2;
+            var zoom = e.Delta > 0 ? .2 : -.2;
             st.ScaleX += zoom;
             st.ScaleY += zoom;
         }
 
         private void SliderA_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            int val = System.Convert.ToInt32(e.NewValue);
-            string msg = $"A value: {val}";
-            var textBlockA = this.TextBlockA;
+            var val = System.Convert.ToInt32(e.NewValue);
+            var msg = $"A value: {val}";
+            var textBlockA = TextBlockA;
             if (textBlockA != null) textBlockA.Text = msg;
         }
 
         private void SliderB_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            int val = System.Convert.ToInt32(e.NewValue);
-            string msg = $"B value: {val}";
-            var textBlockB = this.TextBlockB;
+            var val = System.Convert.ToInt32(e.NewValue);
+            var msg = $"B value: {val}";
+            var textBlockB = TextBlockB;
             if (textBlockB != null) textBlockB.Text = msg;
         }
 
@@ -269,96 +259,90 @@ namespace TreeCrownDetection
             {
                 DefaultExt = ".geoTIFF",
                 Filter =
-                    "TIF Files (*.tif)|*.tif|geoTIFF Files(*.geoTIFF)|*.gTIFF|TIFF Files (*.tiff)|*.tiff"
+                    "ESRI Shapefile (*.shp)|*.shp|geoTIFF Files(*.geoTIFF)|*.gTIFF"
             };
 
-            bool? result = dlg.ShowDialog();
+            var result = dlg.ShowDialog();
             if (result != true) return;
 
 
-            Console.WriteLine(String.Format("Saving to file: {0}", dlg.FileName));
-            await SaveToFile(dlg.FileName, true);
-
+            Console.WriteLine("Saving to file: {0}", dlg.FileName);
+            await SaveToFile(dlg.FileName);
         }
 
-        private async Task SaveToFile(String FileName, bool shapefile)
+        private async Task SaveToFile(string fileName)
         {
-            String FileNameGTiff = null;
+            var fileExtension = fileName.Split('.').ToArray().Last();
+            var shapefile = fileExtension == "shp";
+            string fileNameGTiff = null;
+
+            fileNameGTiff = shapefile ? $"{fileName}.tmp" : fileName;
+
             await Task.Run(() =>
             {
                 string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
 
-                if(shapefile)
-                {
-                    FileNameGTiff = String.Format("{0}.tmp", FileName);
-                }
-                else
-                {
-                    FileNameGTiff = FileName;
-                }
-                Dataset finalDataset = Gdal.GetDriverByName("GTiff").Create(FileNameGTiff, processingBand.XSize, processingBand.YSize, 3, DataType.GDT_Byte, options);
+                var finalDataset = Gdal.GetDriverByName("GTiff").Create(fileNameGTiff, processingBand.XSize,
+                    processingBand.YSize, 3, DataType.GDT_Byte, options);
 
                 finalDataset.SetGeoTransform(geoTranform);
-                var spatialReference = new OSGeo.OSR.SpatialReference(WKT);
+                var spatialReference = new SpatialReference(WKT);
 
-                string exportedWkt;
-                spatialReference.ExportToWkt(out exportedWkt);
-
+                spatialReference.ExportToWkt(out var exportedWkt);
                 finalDataset.SetProjection(exportedWkt);
 
-                byte[] redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
-                byte[] greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
-                byte[] blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
+                var redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
+                var greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
+                var blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
 
-                finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand, processingBand.XSize, processingBand.YSize, 0, 0);
-                finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand, processingBand.XSize, processingBand.YSize, 0, 0);
-                finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand, processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand,
+                    processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand,
+                    processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand,
+                    processingBand.XSize, processingBand.YSize, 0, 0);
 
 
                 if (shapefile)
                 {
                     string[] optionsShapefile = null;
+                    var finalDatasource = Ogr.GetDriverByName("ESRI Shapefile")
+                        .CreateDataSource(fileName, optionsShapefile);
+                    var layer = finalDatasource.CreateLayer("trees", spatialReference, wkbGeometryType.wkbPolygon,
+                        optionsShapefile);
 
-                    OSGeo.OGR.DataSource finalDatasource = OSGeo.OGR.Ogr.GetDriverByName("ESRI Shapefile").CreateDataSource(FileName, optionsShapefile);
-                    OSGeo.OGR.Layer layer = finalDatasource.CreateLayer("trees", spatialReference, OSGeo.OGR.wkbGeometryType.wkbPolygon, optionsShapefile);
-
-                    Gdal.Polygonize(finalDataset.GetRasterBand(1), finalDataset.GetRasterBand(1), layer, -1, null, null, null);
-
+                    Gdal.Polygonize(finalDataset.GetRasterBand(1), finalDataset.GetRasterBand(1), layer, -1, null, null,
+                        null);
                     finalDatasource.FlushCache();
-
                 }
                 else
                 {
                     finalDataset.FlushCache();
                 }
-
             });
         }
 
         private byte[] GetByteArrayFromRaster(Bitmap bitmap, int sizeX, int sizeY, int band)
         {
-            byte[] outputByteArray = new byte[sizeX * sizeY];
+            var outputByteArray = new byte[sizeX * sizeY];
 
             for (var i = 0; i < sizeY - 1; i++)
-            {
                 for (var j = 0; j < sizeX - 1; j++)
-                {
                     if (band == 0)
-                    {
                         outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).R;
-                    }
                     else if (band == 1)
-                    {
                         outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).G;
-                    }
-                    else if (band == 2)
-                    {
-                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).B;
-                    }
-                }
-            }
+                    else if (band == 2) outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).B;
 
             return outputByteArray;
+        }
+
+        public struct ColorARGB
+        {
+            public byte B;
+            public byte G;
+            public byte R;
+            public byte A;
         }
     }
 }
