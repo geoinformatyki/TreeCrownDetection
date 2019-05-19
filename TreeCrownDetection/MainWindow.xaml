@@ -8,46 +8,54 @@
         Title="Tree Crown Detection 0.0.1_alpha" Height="600" Width="600" MinHeight="600" MinWidth="600">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5*"/>
-            <ColumnDefinition Width="32*"/>
+            <ColumnDefinition Width="5*" />
+            <ColumnDefinition Width="32*" />
         </Grid.ColumnDefinitions>
         <Grid Margin="0" Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="150*"></ColumnDefinition>
-                <ColumnDefinition Width="450*"></ColumnDefinition>
+                <ColumnDefinition Width="150*" />
+                <ColumnDefinition Width="450*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="450*"></RowDefinition>
-                <RowDefinition Height="50*"></RowDefinition>
+                <RowDefinition Height="450*" />
+                <RowDefinition Height="50*" />
             </Grid.RowDefinitions>
-            <DockPanel x:Name="ImageDock"  Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
-                <Image x:Name="ImageView" Source="{StaticResource ImagePlaceholder}" Opacity="1" RenderTransformOrigin="0.5,0.5">
+            <DockPanel x:Name="ImageDock" Margin="1" Background="Transparent" Grid.Column="1" Grid.Row="0">
+                <Image x:Name="ImageView" Source="{StaticResource ImagePlaceholder}" Opacity="1"
+                       RenderTransformOrigin="0.5,0.5">
                     <Image.RenderTransform>
                         <ScaleTransform x:Name="scale" ScaleX="1" ScaleY="1"
-                            CenterX="0.5" CenterY="0.5" />
+                                        CenterX="0.5" CenterY="0.5" />
                     </Image.RenderTransform>
                 </Image>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Column="0">
                 <Grid Name="LeftDock">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="11*"/>
-                        <RowDefinition Height="115*"/>
-                        <RowDefinition Height="388*"/>
+                        <RowDefinition Height="11*" />
+                        <RowDefinition Height="115*" />
+                        <RowDefinition Height="388*" />
                     </Grid.RowDefinitions>
-                    <Button Margin="5,5,5,0" VerticalAlignment="Top" Height="30" Content="Open file..." Click="OpenFileButtonClick" Grid.RowSpan="2"/>
-                    <Slider x:Name="SliderA" Value="3" Minimum="1" Maximum="20" TickFrequency="1"  ValueChanged="SliderA_OnValueChanged" Margin="0,70,0,15" Grid.Row="1"/>
-                    <Slider x:Name="SliderB" Value="5" Minimum="1" Maximum="20" TickFrequency="1" ValueChanged="SliderB_OnValueChanged" Margin="0,30,0,328" Grid.Row="2"></Slider>
-                    <TextBlock x:Name="TextBlockA" Background="LightGray" Text="A value: 3" TextAlignment="Center"  Margin="10,105,10,0" Grid.Row="1" Grid.RowSpan="2" Height="20" VerticalAlignment="Top"/>
-                    <TextBlock x:Name="TextBlockB" Background="LightGray" Text="B value: 5" TextAlignment="Center"  Margin="10,65,10,0" Grid.Row="2" Height="20" VerticalAlignment="Top"/>
-                    <Button Name="ConvertButton" Click="ConvertButton_OnClick" Margin="5,0,5,10" Height="30" Content="Convert" IsEnabled="False" Grid.Row="2" VerticalAlignment="Bottom"/>
+                    <Button Margin="5,5,5,0" VerticalAlignment="Top" Height="30" Content="Open file..."
+                            Click="OpenFileButtonClick" Grid.RowSpan="2" />
+                    <Slider x:Name="SliderA" Value="3" Minimum="1" Maximum="20" TickFrequency="1"
+                            ValueChanged="SliderA_OnValueChanged" Margin="0,70,0,15" Grid.Row="1" />
+                    <Slider x:Name="SliderB" Value="5" Minimum="1" Maximum="20" TickFrequency="1"
+                            ValueChanged="SliderB_OnValueChanged" Margin="0,30,0,328" Grid.Row="2" />
+                    <TextBlock x:Name="TextBlockA" Background="LightGray" Text="A value: 3" TextAlignment="Center"
+                               Margin="10,105,10,0" Grid.Row="1" Grid.RowSpan="2" Height="20" VerticalAlignment="Top" />
+                    <TextBlock x:Name="TextBlockB" Background="LightGray" Text="B value: 5" TextAlignment="Center"
+                               Margin="10,65,10,0" Grid.Row="2" Height="20" VerticalAlignment="Top" />
+                    <Button Name="ConvertButton" Click="ConvertButton_OnClick" Margin="5,0,5,10" Height="30"
+                            Content="Convert" IsEnabled="False" Grid.Row="2" VerticalAlignment="Bottom" />
                 </Grid>
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Row="1" Grid.Column="0">
-                <Button Name="SaveFileButton" Margin="5"  Click="SaveFileButton_OnClick" Content="Save file..." Height="30" VerticalAlignment="Center" IsEnabled="False"/>
+                <Button Name="SaveFileButton" Margin="5" Click="SaveFileButton_OnClick" Content="Save file..."
+                        Height="30" VerticalAlignment="Center" IsEnabled="False" />
             </DockPanel>
             <DockPanel Margin="-1" Background="DarkGray" Grid.Column="1" Grid.Row="1">
-                <ProgressBar Name="ProgressBar" Margin="15" Height="40" VerticalAlignment="Center"/>
+                <ProgressBar Name="ProgressBar" Margin="15" Height="40" VerticalAlignment="Center" />
             </DockPanel>
         </Grid>
 
