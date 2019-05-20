@@ -16,6 +16,7 @@ using OSGeo.OGR;
 using OSGeo.OSR;
 using Image = System.Windows.Controls.Image;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
+using Point = System.Windows.Point;
 
 namespace TreeCrownDetection
 {
@@ -35,12 +36,15 @@ namespace TreeCrownDetection
 
     public partial class MainWindow : Window
     {
+        private double[] _geoTransform;
         private string _inputFilename;
         private RawImage _loadedImage;
+        private Point _origin;
         private Bitmap _processedImage;
-        public bool Complete;
-        private double[] _geoTransform;
         private Band _processingBand;
+
+        private Point _start;
+        public bool Complete;
         private string WKT;
 
         public MainWindow()
@@ -363,17 +367,15 @@ namespace TreeCrownDetection
                 ImageView.RenderTransform = group;
             }
 
-            var transformGroup = (TransformGroup)ImageView.RenderTransform;
-            var transform = (ScaleTransform)transformGroup.Children[0];
+            var transformGroup = (TransformGroup) ImageView.RenderTransform;
+            var transform = (ScaleTransform) transformGroup.Children[0];
 
             var zoom = e.Delta > 0 ? .2 : -.2;
             if (zoom < 0)
             {
-                if (transform.ScaleX > 0.4 && transform.ScaleY > 0.4)
-                {
-                    transform.ScaleX += zoom;
-                    transform.ScaleY += zoom;
-                }
+                if (!(transform.ScaleX > 0.4) || !(transform.ScaleY > 0.4)) return;
+                transform.ScaleX += zoom;
+                transform.ScaleY += zoom;
             }
             else
             {
@@ -381,9 +383,6 @@ namespace TreeCrownDetection
                 transform.ScaleY += zoom;
             }
         }
-
-        private System.Windows.Point _start;
-        private System.Windows.Point _origin;
 
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -401,9 +400,10 @@ namespace TreeCrownDetection
                 ImageView.RenderTransform = group;
             }
 
-            tt = (TranslateTransform)((TransformGroup)ImageView.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            tt = (TranslateTransform) ((TransformGroup) ImageView.RenderTransform).Children.First(tr =>
+                tr is TranslateTransform);
             _start = e.GetPosition(ImageDock);
-            _origin = new System.Windows.Point(tt.X, tt.Y);
+            _origin = new Point(tt.X, tt.Y);
         }
 
         private void Image_MouseMove(object sender, MouseEventArgs e)

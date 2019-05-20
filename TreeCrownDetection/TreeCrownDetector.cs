@@ -5,26 +5,26 @@ namespace TreeCrownDetection
 {
     public class TreeCrownDetector
     {
+        private const double Epsilon = 0.00001;
         private readonly int _cutOffValue;
         private readonly int _findLocalMaxWindowSize;
         private readonly int _findMaxAreaWindowSize;
         private readonly int _height;
 
-        private HashSet<Tuple<int, int>>[,] _pointToMaximumAreaTable;
-
         private readonly IReadOnlyList<double> _rawImage;
         private readonly int _width;
-        private const double Epsilon = 0.00001;
+
+        private HashSet<Tuple<int, int>>[,] _pointToMaximumAreaTable;
 
         public TreeCrownDetector(IReadOnlyList<double> rawImage, int width, int height, int cutOffValue,
             int findLocalMaxWindowSize, int findMaxAreaWindowSize)
         {
-            this._rawImage = rawImage;
-            this._width = width;
-            this._height = height;
-            this._cutOffValue = cutOffValue;
-            this._findLocalMaxWindowSize = findLocalMaxWindowSize;
-            this._findMaxAreaWindowSize = findMaxAreaWindowSize;
+            _rawImage = rawImage;
+            _width = width;
+            _height = height;
+            _cutOffValue = cutOffValue;
+            _findLocalMaxWindowSize = findLocalMaxWindowSize;
+            _findMaxAreaWindowSize = findMaxAreaWindowSize;
         }
 
         public int[,] GetLabeledTrees()
@@ -35,21 +35,21 @@ namespace TreeCrownDetection
             var objectId = 1;
 
             for (var i = 1; i < _height - 1; i++)
-                for (var j = 1; j < _width - 1; j++)
+            for (var j = 1; j < _width - 1; j++)
+            {
+                var partRes = FindLocalMax(i, j);
+
+                if (partRes == null) continue;
+
+                if (!maximums.ContainsKey(partRes))
                 {
-                    var partRes = FindLocalMax(i, j);
+                    foreach (var max in FindMaximumArea(partRes.Item1, partRes.Item2)) maximums.Add(max, objectId);
 
-                    if (partRes == null) continue;
-
-                    if (!maximums.ContainsKey(partRes))
-                    {
-                        foreach (var max in FindMaximumArea(partRes.Item1, partRes.Item2)) maximums.Add(max, objectId);
-
-                        objectId++;
-                    }
-
-                    res[i, j] = maximums[partRes];
+                    objectId++;
                 }
+
+                res[i, j] = maximums[partRes];
+            }
 
             Console.WriteLine("Labeled objects: ");
             Console.WriteLine(objectId);
