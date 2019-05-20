@@ -16,6 +16,7 @@ using OSGeo.OGR;
 using OSGeo.OSR;
 using Image = System.Windows.Controls.Image;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
+using Point = System.Windows.Point;
 
 namespace TreeCrownDetection
 {
@@ -35,12 +36,15 @@ namespace TreeCrownDetection
 
     public partial class MainWindow : Window
     {
+        private double[] _geoTransform;
         private string _inputFilename;
         private RawImage _loadedImage;
+        private Point _origin;
         private Bitmap _processedImage;
+        private Band _processingBand;
+
+        private Point _start;
         public bool Complete;
-        private double[] geoTranform;
-        private Band processingBand;
         private string WKT;
 
         public MainWindow()
@@ -73,8 +77,11 @@ namespace TreeCrownDetection
                 var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
                 _processedImage = background;
                 var backgroundSource = Convert(background);
-                var displayImage = new Image { Source = backgroundSource };
+                var displayImage = new Image {Source = backgroundSource};
                 ImageView.MouseWheel += Image_MouseWheel;
+                ImageView.MouseMove += Image_MouseMove;
+                ImageView.MouseLeftButtonDown += Image_MouseLeftButtonDown;
+                ImageView.MouseLeftButtonUp += Image_MouseLeftButtonUp;
                 ImageView.Source = displayImage.Source;
                 ProgressBar.Value = 100;
             }
@@ -84,12 +91,10 @@ namespace TreeCrownDetection
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
-            if (Complete.Equals(true))
-            {
-                ProgressBar.Value = 0;
-                ConvertButton.IsEnabled = true;
-                SaveFileButton.IsEnabled = true;
-            }
+            if (!Complete.Equals(true)) return;
+            ProgressBar.Value = 0;
+            ConvertButton.IsEnabled = true;
+            SaveFileButton.IsEnabled = true;
         }
 
         public async Task ReadGeoTiffFiles(string path, IProgress<int> progress)
@@ -120,16 +125,16 @@ namespace TreeCrownDetection
                 var rasterCols = ds.RasterXSize;
                 var rasterRows = ds.RasterYSize;
 
-                geoTranform = new double[6];
-                ds.GetGeoTransform(geoTranform);
+                _geoTransform = new double[6];
+                ds.GetGeoTransform(_geoTransform);
 
                 progress.Report(30);
-                processingBand = ds.GetRasterBand(1);
+                _processingBand = ds.GetRasterBand(1);
                 var rasterWidth = rasterCols;
                 var rasterHeight = rasterRows;
                 progress.Report(50);
                 var rasterValues = new double[rasterWidth * rasterHeight];
-                processingBand.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0,
+                _processingBand.ReadRaster(0, 0, rasterWidth, rasterHeight, rasterValues, rasterWidth, rasterHeight, 0,
                     0);
                 progress.Report(70);
                 _loadedImage = new RawImage(rasterValues, rasterWidth, rasterHeight);
@@ -165,66 +170,65 @@ namespace TreeCrownDetection
                 PixelFormat.Format32bppArgb
             );
 
-            var sliderA = Application.Current.MainWindow.FindName("SliderA") as Slider;
-            var sliderB = Application.Current.MainWindow.FindName("SliderB") as Slider;
+            if (Application.Current.MainWindow != null)
+            {
+                var sliderA = Application.Current.MainWindow.FindName("SliderA") as Slider;
+                var sliderB = Application.Current.MainWindow.FindName("SliderB") as Slider;
 
-            var cutOff = 15;
-            var a = System.Convert.ToInt32(sliderA.Value);
-            var b = System.Convert.ToInt32(sliderB.Value);
-
-            var tcd = new TreeCrownDetector(rawImage, width, height, cutOff, a, b);
-            var watch = Stopwatch.StartNew();
-            var labeledObj = tcd.GetLabeledTrees();
-            watch.Stop();
-            var elapsedMs = watch.ElapsedMilliseconds;
-            Console.WriteLine("Elapsed time: ");
-            Console.WriteLine(elapsedMs);
-
-            var rnd = new Random();
-            var colors = new Dictionary<int, ColorARGB>();
-
-            ColorARGB color;
-            color.A = 255;
-            color.R = 0;
-            color.G = 0;
-            color.B = 0;
-            colors.Add(0, color);
-
-            var startingPosition = (ColorARGB*)bitmapData.Scan0;
-            for (var i = 1; i < height - 1; i++)
-                for (var j = 1; j < width - 1; j++)
+                const int cutOff = 15;
+                if (sliderA != null)
                 {
-                    var label = labeledObj[i, j];
-
-                    if (label != 0)
+                    var a = System.Convert.ToInt32(sliderA.Value);
+                    if (sliderB != null)
                     {
-                        if (!colors.ContainsKey(label))
+                        var b = System.Convert.ToInt32(sliderB.Value);
+
+                        var tcd = new TreeCrownDetector(rawImage, width, height, cutOff, a, b);
+                        var watch = Stopwatch.StartNew();
+                        var labeledObj = tcd.GetLabeledTrees();
+                        watch.Stop();
+                        var elapsedMs = watch.ElapsedMilliseconds;
+                        Console.WriteLine("Elapsed time: ");
+                        Console.WriteLine(elapsedMs);
+
+                        var rnd = new Random();
+                        var colors = new Dictionary<int, ColorARGB>();
+
+                        ColorARGB color;
+                        color.A = 255;
+                        color.R = 0;
+                        color.G = 0;
+                        color.B = 0;
+                        colors.Add(0, color);
+
+                        var startingPosition = (ColorARGB*) bitmapData.Scan0;
+                        for (var i = 1; i < height - 1; i++)
+                        for (var j = 1; j < width - 1; j++)
                         {
-                            while (colors.ContainsValue(color))
+                            var label = labeledObj[i, j];
+
+                            if (label == 0) continue;
+                            if (!colors.ContainsKey(label))
                             {
-                                color.A = 255;
-                                color.R = (byte)rnd.Next(256);
-                                color.G = (byte)rnd.Next(256);
-                                color.B = (byte)rnd.Next(256);
+                                while (colors.ContainsValue(color))
+                                {
+                                    color.A = 255;
+                                    color.R = (byte) rnd.Next(256);
+                                    color.G = (byte) rnd.Next(256);
+                                    color.B = (byte) rnd.Next(256);
+                                }
+
+                                colors.Add(label, color);
                             }
 
-                            colors.Add(label, color);
+                            *(startingPosition + j + i * width) = colors[label];
                         }
-
-                        *(startingPosition + j + i * width) = colors[label];
                     }
                 }
+            }
 
             image.UnlockBits(bitmapData);
             return image;
-        }
-
-        private void Image_MouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            var st = (ScaleTransform)ImageView.RenderTransform;
-            var zoom = e.Delta > 0 ? .2 : -.2;
-            st.ScaleX += zoom;
-            st.ScaleY += zoom;
         }
 
         private void SliderA_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -248,8 +252,11 @@ namespace TreeCrownDetection
             var background = ToBitmap(_loadedImage.RawImageData, _loadedImage.Width, _loadedImage.Height);
             _processedImage = background;
             var backgroundSource = Convert(background);
-            var displayImage = new Image { Source = backgroundSource };
+            var displayImage = new Image {Source = backgroundSource};
             ImageView.MouseWheel += Image_MouseWheel;
+            ImageView.MouseMove += Image_MouseMove;
+            ImageView.MouseLeftButtonDown += Image_MouseLeftButtonDown;
+            ImageView.MouseLeftButtonUp += Image_MouseLeftButtonUp;
             ImageView.Source = displayImage.Source;
         }
 
@@ -265,7 +272,6 @@ namespace TreeCrownDetection
             var result = dlg.ShowDialog();
             if (result != true) return;
 
-
             Console.WriteLine("Saving to file: {0}", dlg.FileName);
             await SaveToFile(dlg.FileName);
         }
@@ -280,27 +286,28 @@ namespace TreeCrownDetection
 
             await Task.Run(() =>
             {
-                string[] options = { "PHOTOMETRIC=RGB", "PROFILE=GeoTIFF" };
+                string[] options = {"PHOTOMETRIC=RGB", "PROFILE=GeoTIFF"};
 
-                var finalDataset = Gdal.GetDriverByName("GTiff").Create(fileNameGTiff, processingBand.XSize,
-                    processingBand.YSize, 3, DataType.GDT_Byte, options);
+                var finalDataset = Gdal.GetDriverByName("GTiff").Create(fileNameGTiff, _processingBand.XSize,
+                    _processingBand.YSize, 3, DataType.GDT_Byte, options);
 
-                finalDataset.SetGeoTransform(geoTranform);
+                finalDataset.SetGeoTransform(_geoTransform);
                 var spatialReference = new SpatialReference(WKT);
 
                 spatialReference.ExportToWkt(out var exportedWkt);
                 finalDataset.SetProjection(exportedWkt);
 
-                var redBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 0);
-                var greenBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 1);
-                var blueBand = GetByteArrayFromRaster(_processedImage, processingBand.XSize, processingBand.YSize, 2);
+                var redBand = GetByteArrayFromRaster(_processedImage, _processingBand.XSize, _processingBand.YSize, 0);
+                var greenBand =
+                    GetByteArrayFromRaster(_processedImage, _processingBand.XSize, _processingBand.YSize, 1);
+                var blueBand = GetByteArrayFromRaster(_processedImage, _processingBand.XSize, _processingBand.YSize, 2);
 
-                finalDataset.GetRasterBand(1).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, redBand,
-                    processingBand.XSize, processingBand.YSize, 0, 0);
-                finalDataset.GetRasterBand(2).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, greenBand,
-                    processingBand.XSize, processingBand.YSize, 0, 0);
-                finalDataset.GetRasterBand(3).WriteRaster(0, 0, processingBand.XSize, processingBand.YSize, blueBand,
-                    processingBand.XSize, processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(1).WriteRaster(0, 0, _processingBand.XSize, _processingBand.YSize, redBand,
+                    _processingBand.XSize, _processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(2).WriteRaster(0, 0, _processingBand.XSize, _processingBand.YSize, greenBand,
+                    _processingBand.XSize, _processingBand.YSize, 0, 0);
+                finalDataset.GetRasterBand(3).WriteRaster(0, 0, _processingBand.XSize, _processingBand.YSize, blueBand,
+                    _processingBand.XSize, _processingBand.YSize, 0, 0);
 
 
                 if (shapefile)
@@ -327,14 +334,91 @@ namespace TreeCrownDetection
             var outputByteArray = new byte[sizeX * sizeY];
 
             for (var i = 0; i < sizeY - 1; i++)
-                for (var j = 0; j < sizeX - 1; j++)
-                    if (band == 0)
+            for (var j = 0; j < sizeX - 1; j++)
+                switch (band)
+                {
+                    case 0:
                         outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).R;
-                    else if (band == 1)
+                        break;
+                    case 1:
                         outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).G;
-                    else if (band == 2) outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).B;
+                        break;
+                    case 2:
+                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).B;
+                        break;
+                    default:
+                        outputByteArray[i * sizeX + j] = bitmap.GetPixel(i, j).R;
+                        break;
+                }
 
             return outputByteArray;
+        }
+
+        private void Image_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (!(ImageView.RenderTransform is TransformGroup))
+            {
+                var st = new ScaleTransform();
+                var tt = new TranslateTransform();
+                var group = new TransformGroup();
+
+                group.Children.Add(st);
+                group.Children.Add(tt);
+                ImageView.RenderTransform = group;
+            }
+
+            var transformGroup = (TransformGroup) ImageView.RenderTransform;
+            var transform = (ScaleTransform) transformGroup.Children[0];
+
+            var zoom = e.Delta > 0 ? .2 : -.2;
+            if (zoom < 0)
+            {
+                if (!(transform.ScaleX > 0.4) || !(transform.ScaleY > 0.4)) return;
+                transform.ScaleX += zoom;
+                transform.ScaleY += zoom;
+            }
+            else
+            {
+                transform.ScaleX += zoom;
+                transform.ScaleY += zoom;
+            }
+        }
+
+        private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            TranslateTransform tt;
+            ImageView.CaptureMouse();
+
+            if (!(ImageView.RenderTransform is TransformGroup))
+            {
+                var st = new ScaleTransform();
+                tt = new TranslateTransform();
+                var group = new TransformGroup();
+
+                group.Children.Add(st);
+                group.Children.Add(tt);
+                ImageView.RenderTransform = group;
+            }
+
+            tt = (TranslateTransform) ((TransformGroup) ImageView.RenderTransform).Children.First(tr =>
+                tr is TranslateTransform);
+            _start = e.GetPosition(ImageDock);
+            _origin = new Point(tt.X, tt.Y);
+        }
+
+        private void Image_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!ImageView.IsMouseCaptured) return;
+            var tt = (TranslateTransform) ((TransformGroup) ImageView.RenderTransform)
+                .Children.First(tr => tr is TranslateTransform);
+            var v = _start - e.GetPosition(ImageDock);
+            tt.X = _origin.X - v.X;
+            tt.Y = _origin.Y - v.Y;
+        }
+
+        private void Image_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            ImageView.ReleaseMouseCapture();
         }
 
         public struct ColorARGB
