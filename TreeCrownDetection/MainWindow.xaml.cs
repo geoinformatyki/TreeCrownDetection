@@ -380,9 +380,6 @@ namespace TreeCrownDetection
                 transform.ScaleX += zoom;
                 transform.ScaleY += zoom;
             }
-
-            Console.WriteLine(transform.ScaleX);
-            Console.WriteLine(transform.ScaleY);
         }
 
         private System.Windows.Point _start;
