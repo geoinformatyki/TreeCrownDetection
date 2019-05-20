@@ -367,8 +367,22 @@ namespace TreeCrownDetection
             var transform = (ScaleTransform)transformGroup.Children[0];
 
             var zoom = e.Delta > 0 ? .2 : -.2;
-            transform.ScaleX += zoom;
-            transform.ScaleY += zoom;
+            if (zoom < 0)
+            {
+                if (transform.ScaleX > 0.4 && transform.ScaleY > 0.4)
+                {
+                    transform.ScaleX += zoom;
+                    transform.ScaleY += zoom;
+                }
+            }
+            else
+            {
+                transform.ScaleX += zoom;
+                transform.ScaleY += zoom;
+            }
+
+            Console.WriteLine(transform.ScaleX);
+            Console.WriteLine(transform.ScaleY);
         }
 
         private System.Windows.Point _start;
